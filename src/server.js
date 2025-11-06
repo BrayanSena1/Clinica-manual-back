@@ -1,3 +1,4 @@
+// src/server.js
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
@@ -10,14 +11,14 @@ dotenv.config();
 
 const app = express();
 
-// dominios permitidos (tu Netlify y tus locales)
+// dominios que dejamos entrar
 const allowedOrigins = [
   "https://clinicafront1.netlify.app",
   "http://localhost:5173",
   "http://localhost:5500"
 ];
 
-// CORS manual para que responda al preflight
+// CORS manual (esto sí responde también a OPTIONS)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
@@ -30,7 +31,6 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
-
   next();
 });
 
@@ -40,9 +40,7 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
-app.get("/", (_, res) => {
-  res.json({ ok: true, msg: "API" });
-});
+app.get("/", (_, res) => res.json({ ok: true, msg: "API" }));
 
 app.use("/api/auth", auth);
 app.use("/api/empleados", empleados);
@@ -50,7 +48,7 @@ app.use("/api/empleados", empleados);
 const PORT = process.env.PORT || 4000;
 const URI = process.env.MONGODB_URI || "mongodb://localhost:27017/app_db";
 
-// EVITAR que escuche dos veces (este fue el error de Render)
+// 👇 esto evita el error de Render "EADDRINUSE"
 let serverStarted = false;
 
 async function start() {
@@ -65,11 +63,9 @@ async function start() {
       serverStarted = true;
     }
   } catch (err) {
-    console.error("Error iniciando la app:", err.message);
+    console.error("Error iniciando servidor:", err.message);
     process.exit(1);
   }
 }
 
 start();
-
-
