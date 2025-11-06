@@ -10,40 +10,31 @@ dotenv.config();
 
 const app = express();
 
-// ✅ orígenes permitidos
+// dominios que sí dejamos entrar
 const allowedOrigins = [
   "https://clinicafront1.netlify.app",
   "http://localhost:5173",
   "http://localhost:5500"
 ];
 
-// ✅ middleware manual de CORS
+// CORS manual (esto sí manda el header que pide el navegador)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
-  // para que los navegadores no cacheen el CORS
   res.header("Vary", "Origin");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
-  );
-
-  // si es el preflight (OPTIONS) respondemos aquí mismo
+  // responder preflight
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
-
   next();
 });
 
-// puedes dejar cors() básico por si acaso
+// opcional: dejar el cors normal también
 app.use(cors());
 
 app.use(morgan("dev"));
@@ -57,11 +48,25 @@ app.use("/api/empleados", empleados);
 const PORT = process.env.PORT || 4000;
 const URI = process.env.MONGODB_URI || "mongodb://localhost:27017/app_db";
 
-connectDB(URI).then(() =>
-  app.listen(PORT, () => console.log("http://localhost:" + PORT))
-);
+// 👇 seguro para que NO escuche dos veces
+let serverStarted = false;
 
+async function start() {
+  try {
+    await connectDB(URI);
+    console.log("DB conectada");
 
-connectDB(URI).then(() =>
-  app.listen(PORT, () => console.log("http://localhost:" + PORT))
-);
+    if (!serverStarted) {
+      app.listen(PORT, () => {
+        console.log("Servidor en http://localhost:" + PORT);
+      });
+      serverStarted = true;
+    }
+  } catch (err) {
+    console.error("Error iniciando la app:", err.message);
+    process.exit(1);
+  }
+}
+
+start();
+
