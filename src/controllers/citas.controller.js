@@ -8,10 +8,12 @@ export async function listarCitas(req, res) {
     const { estado } = req.query;
     const filtro = {};
     if (estado) filtro.estado = estado;
+
     const citas = await Cita.find(filtro)
       .sort({ fechaHora: -1 })
       .limit(100)
       .lean();
+
     res.json({ ok: true, citas });
   } catch (e) {
     console.error(e);
@@ -87,8 +89,14 @@ export async function documentosDeCita(req, res) {
 // POST /api/citas/:id/documentos  (médico escribe evolución)
 export async function crearDocumentoDeCita(req, res) {
   try {
-    const { id } = req.params; // cita
+    const { id } = req.params; // id de la cita
     const { tipo, titulo, contenido } = req.body || {};
+
+    // ✅ mejora: validar que la cita exista y sea de verdad
+    const cita = await Cita.findById(id);
+    if (!cita) {
+      return res.status(404).json({ ok: false, msg: "Cita no encontrada" });
+    }
 
     const doc = await DocCita.create({
       cita: id,
@@ -106,4 +114,3 @@ export async function crearDocumentoDeCita(req, res) {
       .json({ ok: false, msg: "Error al crear documento de la cita" });
   }
 }
-
