@@ -8,6 +8,7 @@ import auth from "./routes/auth.routes.js";
 import empleados from "./routes/empleados.routes.js";
 import pacientes from "./routes/pacientes.routes.js";
 import citas from "./routes/citas.routes.js";
+import pacienteSelf from "./routes/paciente.self.routes.js";
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use("/api/auth", auth);
 app.use("/api/empleados", empleados);
 app.use("/api/pacientes", pacientes);
 app.use("/api/citas", citas);
+app.use("/api/mipaciente", pacienteSelf);
 
 // manejador de errores básico (opcional)
 app.use((err, req, res, next) => {
