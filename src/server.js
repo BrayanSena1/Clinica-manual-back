@@ -14,7 +14,7 @@ dotenv.config();
 
 const app = express();
 
-// dominios que dejamos entrar (puedes sobrescribir con ALLOWED_ORIGINS en .env)
+// dominios permitidos (configurable por .env). IMPORTANTE: usa tu dominio real de Netlify
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "https://clinicafront1.netlify.app,http://localhost:5173,http://localhost:5500")
   .split(",")
   .map(s => s.trim())
@@ -23,7 +23,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "https://clinicafront1.ne
 app.use(morgan("dev"));
 app.use(express.json());
 
-// CORS manual (responde también a OPTIONS)
+// CORS manual (responde también OPTIONS)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
@@ -33,10 +33,7 @@ app.use((req, res, next) => {
   res.header("Vary", "Origin");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin, Accept");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
@@ -50,7 +47,7 @@ app.use("/api/pacientes", pacientes);
 app.use("/api/citas", citas);
 app.use("/api/mipaciente", pacienteSelf);
 
-// manejador de errores básico (opcional)
+// manejador de errores básico
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ ok: false, msg: "Error interno del servidor" });
@@ -59,7 +56,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 const URI = process.env.MONGODB_URI || "mongodb://localhost:27017/app_db";
 
-// evitar error de Render "EADDRINUSE"
+// Render: evitar EADDRINUSE
 let serverStarted = false;
 
 async function start() {
@@ -79,6 +76,4 @@ async function start() {
 }
 
 start();
-
-// export para pruebas/uso externo (opcional)
 export default app;
