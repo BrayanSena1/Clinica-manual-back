@@ -1,8 +1,16 @@
 import mongoose from "mongoose";
-const schema = new mongoose.Schema({
-  role: { type:String, enum:["paciente","medico","empleado","admin"], default:"paciente" },
-  email: { type:String, unique:true, required:true, lowercase:true, trim:true },
-  nombre: { type:String, required:true, trim:true },
-  passwordHash: { type:String, required:true }
-},{timestamps:true, collection:"users"});
-export default mongoose.model("User", schema);
+
+const userSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    nombre: { type: String, required: true, trim: true },
+    role: { type: String, enum: ["admin","empleado","medico","paciente"], required: true },
+    passwordHash: { type: String, required: true },
+
+    // solo para médicos
+    especialidad: { type: String, enum: ["general","odontologia","psicologia"], default: undefined },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("User", userSchema);
