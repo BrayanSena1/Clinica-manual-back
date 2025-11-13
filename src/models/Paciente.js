@@ -1,24 +1,32 @@
-// src/models/Paciente.js
-import mongoose from "mongoose";
+import { Router } from "express";
+import { needAuth, needRole } from "../middleware/auth.js";
+import {
+  listarPacientes,
+  obtenerPaciente,
+  crearPaciente,
+  actualizarPaciente,
+  cambiarEstado,
+  citasDelPaciente,
+  certAfiliacion,
+  certHistorial,
+} from "../controllers/pacientes.controller.js";
 
-const pacienteSchema = new mongoose.Schema(
-  {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // 👈 nuevo
-    docTipo: { type: String, default: "CC" },
-    docNumero: { type: String, required: true, unique: true },
-    nombre: { type: String, required: true },
-    email: { type: String, trim: true, lowercase: true },
-    telefono: { type: String, trim: true },
-    estado: {
-      type: String,
-      enum: ["activo", "inactivo"],
-      default: "activo",
-    },
-    direccion: String,
-    fechaNacimiento: Date,
-    observaciones: String,
-  },
-  { timestamps: true }
-);
+const r = Router();
 
-export default mongoose.model("Paciente", pacienteSchema);
+// empleado/medico/admin pueden **ver**
+r.use(needAuth);
+
+r.get("/", needRole("empleado","medico","admin"), listarPacientes);
+r.get("/:id", needRole("empleado","medico","admin"), obtenerPaciente);
+r.get("/:id/citas", needRole("empleado","medico","admin"), citasDelPaciente);
+
+// crear/editar/cambiar estado: sólo empleado/admin
+r.post("/", needRole("empleado","admin"), crearPaciente);
+r.put("/:id", needRole("empleado","admin"), actualizarPaciente);
+r.patch("/:id/estado", needRole("empleado","admin"), cambiarEstado);
+
+// certificados: típicamente empleado/admin
+r.get("/:id/certificados/afiliacion", needRole("empleado","admin"), certAfiliacion);
+r.get("/:id/certificados/historial", needRole("empleado","admin"), certHistorial);
+
+export default r;
