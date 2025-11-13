@@ -4,17 +4,17 @@ import Paciente from "../models/Paciente.js";
 import Cita from "../models/Cita.js";
 import DocCita from "../models/DocCita.js";
 
-// helper: trae o crea el paciente que corresponde a este usuario
+// --- helper: trae o crea el paciente asociado al usuario que hace la petición ---
 async function getOrCreatePacienteForUser(userId) {
-  // 1. ¿ya hay un paciente ligado a este user?
+  // ¿ya hay un Paciente ligado al user?
   let paciente = await Paciente.findOne({ user: userId });
   if (paciente) return paciente;
 
-  // 2. buscamos el user
+  // buscamos el user
   const user = await User.findById(userId).lean();
   if (!user) throw new Error("Usuario no encontrado");
 
-  // 3. si hay paciente con mismo email, lo ligamos
+  // ¿existe un paciente con el mismo email? si sí, lo ligamos
   if (user.email) {
     const existente = await Paciente.findOne({ email: user.email });
     if (existente) {
@@ -24,17 +24,18 @@ async function getOrCreatePacienteForUser(userId) {
     }
   }
 
-  // 4. si no existe, lo creamos rápido
+  // si no existe, creamos uno básico
   const nuevo = await Paciente.create({
     user: userId,
     nombre: user.nombre || user.email || "Paciente",
     email: user.email,
-    docNumero: Date.now().toString(), // luego lo puede editar
+    docNumero: Date.now().toString(), // luego puede editarlo
+    estado: "activo",
   });
   return nuevo;
 }
 
-// GET /api/mipaciente
+// --- PERFIL ---
 export async function miPerfilPaciente(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
@@ -45,17 +46,13 @@ export async function miPerfilPaciente(req, res) {
   }
 }
 
-// PUT /api/mipaciente
 export async function actualizarMiPaciente(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
-
-    // solo dejamos cambiar algunos campos
     const campos = ["docTipo", "docNumero", "nombre", "telefono", "direccion", "fechaNacimiento"];
     campos.forEach((c) => {
       if (req.body[c] !== undefined) paciente[c] = req.body[c];
     });
-
     await paciente.save();
     res.json({ ok: true, paciente });
   } catch (e) {
@@ -64,7 +61,7 @@ export async function actualizarMiPaciente(req, res) {
   }
 }
 
-// GET /api/mipaciente/citas
+// --- MIS CITAS ---
 export async function misCitas(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
@@ -78,13 +75,11 @@ export async function misCitas(req, res) {
   }
 }
 
-// PATCH /api/mipaciente/citas/:id/cancelar
 export async function cancelarMiCita(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
     const { id } = req.params;
 
-    // solo puede cancelar si la cita es suya
     const cita = await Cita.findOne({ _id: id, paciente: paciente._id });
     if (!cita) return res.status(404).json({ ok: false, msg: "Cita no encontrada" });
 
@@ -102,13 +97,11 @@ export async function cancelarMiCita(req, res) {
   }
 }
 
-// GET /api/mipaciente/citas/:id/documentos
 export async function documentosDeMiCita(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
     const { id } = req.params;
 
-    // aseguramos que la cita sea suya
     const cita = await Cita.findOne({ _id: id, paciente: paciente._id }).lean();
     if (!cita) return res.status(404).json({ ok: false, msg: "Cita no encontrada" });
 
@@ -120,7 +113,7 @@ export async function documentosDeMiCita(req, res) {
   }
 }
 
-// GET /api/mipaciente/certificados/afiliacion
+// --- CERTIFICADOS ---
 export async function miCertAfiliacion(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
@@ -140,7 +133,6 @@ export async function miCertAfiliacion(req, res) {
   }
 }
 
-// GET /api/mipaciente/certificados/historial
 export async function miCertHistorial(req, res) {
   try {
     const paciente = await getOrCreatePacienteForUser(req.userId);
@@ -167,5 +159,58 @@ export async function miCertHistorial(req, res) {
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, msg: "Error al generar historial" });
+  }
+}
+
+// --- CREAR MI CITA (PACIENTE) ---
+export async function crearMiCita(req, res) {
+  try {
+    const paciente = await getOrCreatePacienteForUser(req.userId);
+    const { especialidad, fecha, hora, motivo } = req.body || {};
+
+    if (!especialidad || !fecha || !hora) {
+      return res.status(400).json({ ok: false, msg: "especialidad, fecha (YYYY-MM-DD) y hora (HH) son obligatorios" });
+    }
+
+    const hh = parseInt(hora, 10);
+    if (Number.isNaN(hh) || hh < 8 || hh > 17) {
+      return res.status(400).json({ ok: false, msg: "Hora fuera de horario (08 a 17)" });
+    }
+
+    // construir ventana [start, end) de esa hora (local)
+    const [y, m, d] = fecha.split("-").map(Number);
+    const start = new Date(y, (m || 1) - 1, d || 1, hh, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(end.getHours() + 1);
+
+    // contamos citas no canceladas en ese bloque y especialidad
+    const ocupadas = await Cita.countDocuments({
+      especialidad,
+      fechaHora: { $gte: start, $lt: end },
+      estado: { $ne: "cancelada" },
+    });
+
+    const cuposPorHora = 2; // dos médicos por especialidad
+    if (ocupadas >= cuposPorHora) {
+      return res.status(409).json({ ok: false, msg: "No hay disponibilidad a esa hora" });
+    }
+
+    // asignación simple de médico (medico-1 o medico-2)
+    const medico = `medico-${ocupadas + 1}`;
+
+    const cita = await Cita.create({
+      paciente: paciente._id,
+      especialidad,
+      fechaHora: start,
+      motivo: motivo || "",
+      estado: "programada",
+      medico,
+      creadoPor: req.userId,
+    });
+
+    res.status(201).json({ ok: true, cita });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, msg: "Error al crear cita" });
   }
 }
