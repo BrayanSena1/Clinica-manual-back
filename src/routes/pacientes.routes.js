@@ -1,4 +1,3 @@
-// src/routes/pacientes.routes.js
 import { Router } from "express";
 import { needAuth, needRole } from "../middleware/auth.js";
 import {
@@ -14,16 +13,20 @@ import {
 
 const r = Router();
 
-// dejamos entrar a empleado, médico y admin
-r.use(needAuth, needRole("empleado", "medico", "admin"));
+// empleado/medico/admin pueden **ver**
+r.use(needAuth);
 
-r.get("/", listarPacientes);
-r.get("/:id", obtenerPaciente);
-r.post("/", crearPaciente);
-r.put("/:id", actualizarPaciente);
-r.patch("/:id/estado", cambiarEstado);
-r.get("/:id/citas", citasDelPaciente);
-r.get("/:id/certificados/afiliacion", certAfiliacion);
-r.get("/:id/certificados/historial", certHistorial);
+r.get("/", needRole("empleado","medico","admin"), listarPacientes);
+r.get("/:id", needRole("empleado","medico","admin"), obtenerPaciente);
+r.get("/:id/citas", needRole("empleado","medico","admin"), citasDelPaciente);
+
+// crear/editar/cambiar estado: sólo empleado/admin
+r.post("/", needRole("empleado","admin"), crearPaciente);
+r.put("/:id", needRole("empleado","admin"), actualizarPaciente);
+r.patch("/:id/estado", needRole("empleado","admin"), cambiarEstado);
+
+// certificados: típicamente empleado/admin
+r.get("/:id/certificados/afiliacion", needRole("empleado","admin"), certAfiliacion);
+r.get("/:id/certificados/historial", needRole("empleado","admin"), certHistorial);
 
 export default r;
