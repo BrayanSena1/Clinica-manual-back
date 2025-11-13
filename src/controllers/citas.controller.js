@@ -1,3 +1,4 @@
+// src/controllers/citas.controller.js
 import Cita from "../models/Cita.js";
 import DocCita from "../models/DocCita.js";
 import User from "../models/User.js";
@@ -203,3 +204,6 @@ export async function crearDocumentoDeCita(req, res) {
     res.status(500).json({ ok: false, msg: "Error al crear documento de la cita" });
   }
 }
+
+// 👇 **Alias para que tu ruta pueda importar slotsDisponibles**
+export { slotsPorDia as slotsDisponibles };
