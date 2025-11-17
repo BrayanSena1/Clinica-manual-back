@@ -9,29 +9,28 @@ import {
   documentosDeMiCita,
   miCertAfiliacion,
   miCertHistorial,
-  crearMiCita
+  crearMiCita,        // <- ya lo exportas así en tu controller
+  slotsPorDiaSelf,    // <- usamos la versión "self"
 } from "../controllers/pacienteSelf.controller.js";
-import { slotsDisponibles } from "../controllers/citas.controller.js";
 
 const r = Router();
-
 r.use(needAuth);
 
-// perfil
+// perfil propio
 r.get("/", needRole("paciente"), miPerfilPaciente);
 r.put("/", needRole("paciente"), actualizarMiPaciente);
 
 // citas propias
 r.get("/citas", needRole("paciente"), misCitas);
+r.post("/citas", needRole("paciente"), crearMiCita);
 r.patch("/citas/:id/cancelar", needRole("paciente"), cancelarMiCita);
 r.get("/citas/:id/documentos", needRole("paciente"), documentosDeMiCita);
 
-// nuevos: disponibilidad y crear cita (para el front de paciente)
-r.get("/citas/slots", needRole("paciente"), slotsDisponibles);
-r.post("/citas", needRole("paciente"), crearMiCita);
-
-// certificados del propio paciente
+// certificados propios
 r.get("/certificados/afiliacion", needRole("paciente"), miCertAfiliacion);
 r.get("/certificados/historial", needRole("paciente"), miCertHistorial);
+
+// disponibilidad (endpoint que espera el front)
+r.get("/slots", needRole("paciente"), slotsPorDiaSelf);
 
 export default r;
